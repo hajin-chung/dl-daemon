@@ -2,17 +2,20 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"deps.me/dl-daemon/internal/db"
 	"deps.me/dl-daemon/internal/logging"
 	"deps.me/dl-daemon/internal/manager"
 	"deps.me/dl-daemon/internal/model"
+	"deps.me/dl-daemon/internal/platform/chzzk"
 )
 
 func main() {
@@ -40,6 +43,10 @@ func main() {
 		runDaemon(database)
 	case "target":
 		handleTarget(database, args[1:])
+	case "config":
+		handleConfig(database, args[1:])
+	case "chzzk":
+		handleChzzk(database, args[1:])
 	case "download", "downloads":
 		handleDownloads(database, args[1:])
 	case "help", "-h", "--help":
@@ -122,6 +129,97 @@ func handleTarget(database *db.DB, args []string) {
 	}
 }
 
+func handleConfig(database *db.DB, args []string) {
+	if len(args) == 0 {
+		printConfigHelp()
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "set":
+		if len(args) != 3 {
+			fmt.Fprintln(os.Stderr, "usage: dld config set <key> <value>")
+			os.Exit(1)
+		}
+		if err := database.SetMetadata(args[1], args[2]); err != nil {
+			log.Fatalf("set config: %v", err)
+		}
+		slog.Info("config updated", "key", args[1])
+		fmt.Printf("Set %s\n", args[1])
+	case "get":
+		if len(args) != 2 {
+			fmt.Fprintln(os.Stderr, "usage: dld config get <key>")
+			os.Exit(1)
+		}
+		value, err := database.GetMetadata(args[1])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				fmt.Fprintf(os.Stderr, "config key not found: %s\n", args[1])
+				os.Exit(1)
+			}
+			log.Fatalf("get config: %v", err)
+		}
+		fmt.Println(value)
+	case "list", "ls":
+		rows, err := database.ListMetadata()
+		if err != nil {
+			log.Fatalf("list config: %v", err)
+		}
+		if len(rows) == 0 {
+			fmt.Println("No config values stored.")
+			return
+		}
+		for _, row := range rows {
+			fmt.Printf("%s\t%s\n", row.Key, maskConfigValue(row.Key, row.Value))
+		}
+	default:
+		printConfigHelp()
+		os.Exit(1)
+	}
+}
+
+func handleChzzk(database *db.DB, args []string) {
+	if len(args) == 0 {
+		printChzzkHelp()
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "me":
+		aut, err := getConfigFallback(database, "chzzk.nid_aut", "NID_AUT")
+		if err != nil {
+			if err == sql.ErrNoRows {
+				fmt.Fprintln(os.Stderr, "missing config: chzzk.nid_aut (or legacy NID_AUT)")
+				os.Exit(1)
+			}
+			log.Fatalf("get chzzk auth: %v", err)
+		}
+		ses, err := getConfigFallback(database, "chzzk.nid_ses", "NID_SES")
+		if err != nil {
+			if err == sql.ErrNoRows {
+				fmt.Fprintln(os.Stderr, "missing config: chzzk.nid_ses (or legacy NID_SES)")
+				os.Exit(1)
+			}
+			log.Fatalf("get chzzk session: %v", err)
+		}
+
+		client := chzzk.NewClient(aut, ses)
+		status, err := client.GetUserStatus()
+		if err != nil {
+			log.Fatalf("chzzk me: %v", err)
+		}
+
+		if status.Content.NickName != nil && *status.Content.NickName != "" {
+			fmt.Printf("Authorized as %s\n", *status.Content.NickName)
+			return
+		}
+		fmt.Println("Token appears invalid or user status is unavailable.")
+	default:
+		printChzzkHelp()
+		os.Exit(1)
+	}
+}
+
 func handleDownloads(database *db.DB, args []string) {
 	downloads, err := database.ListDownloads()
 	if err != nil {
@@ -143,6 +241,30 @@ func handleDownloads(database *db.DB, args []string) {
 	}
 }
 
+func getConfigFallback(database *db.DB, keys ...string) (string, error) {
+	for _, key := range keys {
+		value, err := database.GetMetadata(key)
+		if err == nil {
+			return value, nil
+		}
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+	return "", sql.ErrNoRows
+}
+
+func maskConfigValue(key string, value string) string {
+	lower := strings.ToLower(key)
+	if strings.Contains(lower, "token") || strings.Contains(lower, "aut") || strings.Contains(lower, "ses") || strings.Contains(lower, "secret") || strings.Contains(lower, "password") {
+		if len(value) <= 8 {
+			return "********"
+		}
+		return value[:4] + strings.Repeat("*", len(value)-8) + value[len(value)-4:]
+	}
+	return value
+}
+
 func printHelp() {
 	fmt.Println("dld")
 	fmt.Println("Usage:")
@@ -150,6 +272,10 @@ func printHelp() {
 	fmt.Println("  dld target add <platform> <id> [label]")
 	fmt.Println("  dld target list")
 	fmt.Println("  dld target remove <platform> <id>")
+	fmt.Println("  dld config set <key> <value>")
+	fmt.Println("  dld config get <key>")
+	fmt.Println("  dld config list")
+	fmt.Println("  dld chzzk me")
 	fmt.Println("  dld downloads")
 }
 
@@ -159,4 +285,18 @@ func printTargetHelp() {
 	fmt.Println("  dld target add <platform> <id> [label]")
 	fmt.Println("  dld target list")
 	fmt.Println("  dld target remove <platform> <id>")
+}
+
+func printConfigHelp() {
+	fmt.Println("dld config")
+	fmt.Println("Usage:")
+	fmt.Println("  dld config set <key> <value>")
+	fmt.Println("  dld config get <key>")
+	fmt.Println("  dld config list")
+}
+
+func printChzzkHelp() {
+	fmt.Println("dld chzzk")
+	fmt.Println("Usage:")
+	fmt.Println("  dld chzzk me")
 }

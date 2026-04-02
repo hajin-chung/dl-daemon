@@ -85,6 +85,31 @@ func (db *DB) GetTargets() ([]model.Target, error) {
 	return targets, err
 }
 
+func (db *DB) SetMetadata(key string, value string) error {
+	query := `INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?);`
+	_, err := db.conn.Exec(query, key, value)
+	return err
+}
+
+func (db *DB) GetMetadata(key string) (string, error) {
+	var value string
+	query := `SELECT value FROM metadata WHERE key = ?;`
+	err := db.conn.Get(&value, query, key)
+	return value, err
+}
+
+type MetadataRow struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+func (db *DB) ListMetadata() ([]MetadataRow, error) {
+	rows := []MetadataRow{}
+	query := `SELECT key, value FROM metadata ORDER BY key ASC`
+	err := db.conn.Select(&rows, query)
+	return rows, err
+}
+
 func (db *DB) AddTarget(target model.Target) error {
 	query := `
 	INSERT INTO targets(platform, id, label)

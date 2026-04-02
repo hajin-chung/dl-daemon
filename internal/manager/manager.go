@@ -32,7 +32,21 @@ func New(db *db.DB) *Manager {
 	if home, err := os.UserHomeDir(); err == nil {
 		baseOutputDir = filepath.Join(home, "Downloads", "dld", "chzzk")
 	}
-	providers["chzzk"] = chzzk.NewVODProvider(baseOutputDir, "", "")
+	aut, err := db.GetMetadata("chzzk.nid_aut")
+	if err != nil {
+		aut, err = db.GetMetadata("NID_AUT")
+		if err != nil {
+			aut = ""
+		}
+	}
+	ses, err := db.GetMetadata("chzzk.nid_ses")
+	if err != nil {
+		ses, err = db.GetMetadata("NID_SES")
+		if err != nil {
+			ses = ""
+		}
+	}
+	providers["chzzk"] = chzzk.NewVODProvider(baseOutputDir, aut, ses)
 	for name := range providers {
 		slog.Info("provider registered", "provider", name)
 	}
