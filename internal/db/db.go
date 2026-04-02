@@ -14,6 +14,16 @@ type DB struct {
 	conn *sqlx.DB
 }
 
+type DownloadRow struct {
+	VideoID      string `db:"video_id"`
+	Title        string `db:"title"`
+	Platform     string `db:"platform"`
+	Status       string `db:"status"`
+	BytesWritten int64  `db:"bytes_written"`
+	TotalBytes   int64  `db:"total_bytes"`
+	ErrorMsg     string `db:"error_msg"`
+}
+
 func OpenDatabase() (*DB, error) {
 	baseDir, err := os.UserConfigDir()
 	if err != nil {
@@ -75,6 +85,31 @@ func (db *DB) GetTargets() ([]model.Target, error) {
 	return targets, err
 }
 
+func (db *DB) SetMetadata(key string, value string) error {
+	query := `INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?);`
+	_, err := db.conn.Exec(query, key, value)
+	return err
+}
+
+func (db *DB) GetMetadata(key string) (string, error) {
+	var value string
+	query := `SELECT value FROM metadata WHERE key = ?;`
+	err := db.conn.Get(&value, query, key)
+	return value, err
+}
+
+type MetadataRow struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+func (db *DB) ListMetadata() ([]MetadataRow, error) {
+	rows := []MetadataRow{}
+	query := `SELECT key, value FROM metadata ORDER BY key ASC`
+	err := db.conn.Select(&rows, query)
+	return rows, err
+}
+
 func (db *DB) AddTarget(target model.Target) error {
 	query := `
 	INSERT INTO targets(platform, id, label)
@@ -124,5 +159,16 @@ func (db *DB) SetStatus(item model.Content, status string, errorMsg string) erro
 	`
 	_, err := db.conn.Exec(query, status, errorMsg, item.DownloadID())
 	return err
+}
+
+func (db *DB) ListDownloads() ([]DownloadRow, error) {
+	rows := []DownloadRow{}
+	query := `
+	SELECT video_id, title, platform, status, bytes_written, total_bytes, error_msg
+	FROM downloads
+	ORDER BY updated_at DESC, video_id ASC
+	`
+	err := db.conn.Select(&rows, query)
+	return rows, err
 }
 
