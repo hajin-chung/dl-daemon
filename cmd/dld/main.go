@@ -269,14 +269,23 @@ func printHelp() {
 	fmt.Println("dld")
 	fmt.Println("Usage:")
 	fmt.Println("  dld run")
+	fmt.Println("  dld target <subcommand>")
+	fmt.Println("  dld config <subcommand>")
+	fmt.Println("  dld chzzk <subcommand>")
+	fmt.Println("  dld downloads")
+	fmt.Println()
+	fmt.Println("Target commands:")
 	fmt.Println("  dld target add <platform> <id> [label]")
 	fmt.Println("  dld target list")
 	fmt.Println("  dld target remove <platform> <id>")
+	fmt.Println()
+	fmt.Println("Config commands:")
 	fmt.Println("  dld config set <key> <value>")
 	fmt.Println("  dld config get <key>")
 	fmt.Println("  dld config list")
+	fmt.Println()
+	fmt.Println("Chzzk commands:")
 	fmt.Println("  dld chzzk me")
-	fmt.Println("  dld downloads")
 }
 
 func printTargetHelp() {
@@ -293,10 +302,17 @@ func printConfigHelp() {
 	fmt.Println("  dld config set <key> <value>")
 	fmt.Println("  dld config get <key>")
 	fmt.Println("  dld config list")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  dld config set chzzk.nid_aut <value>")
+	fmt.Println("  dld config set chzzk.nid_ses <value>")
 }
 
 func printChzzkHelp() {
 	fmt.Println("dld chzzk")
 	fmt.Println("Usage:")
 	fmt.Println("  dld chzzk me")
+	fmt.Println()
+	fmt.Println("Description:")
+	fmt.Println("  Check whether the configured Chzzk auth tokens are valid.")
 }
