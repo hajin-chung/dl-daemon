@@ -70,9 +70,24 @@ func initSchema(db *sqlx.DB) error {
 
 func (db *DB) GetTargets() ([]model.Target, error) {
 	targets := []model.Target{}
-	query := `SELECT platform, id, label FROM targets`
+	query := `SELECT platform, id, label FROM targets ORDER BY target_id ASC`
 	err := db.conn.Select(&targets, query)
 	return targets, err
+}
+
+func (db *DB) AddTarget(target model.Target) error {
+	query := `
+	INSERT INTO targets(platform, id, label)
+	VALUES (?, ?, ?);
+	`
+	_, err := db.conn.Exec(query, target.Platform, target.Id, target.Label)
+	return err
+}
+
+func (db *DB) RemoveTarget(platform string, id string) error {
+	query := `DELETE FROM targets WHERE platform = ? AND id = ?;`
+	_, err := db.conn.Exec(query, platform, id)
+	return err
 }
 
 func (db *DB) Exists(item model.Content) bool {

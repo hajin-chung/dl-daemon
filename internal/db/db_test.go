@@ -103,3 +103,35 @@ func TestInsertDownloadNamespacesIDsByPlatform(t *testing.T) {
 		t.Fatalf("count = %d, want 2", count)
 	}
 }
+
+func TestAddAndRemoveTarget(t *testing.T) {
+	db := newTestDB(t)
+
+	target := model.Target{Platform: "chzzk", Id: "channel-1", Label: "main"}
+	if err := db.AddTarget(target); err != nil {
+		t.Fatalf("add target: %v", err)
+	}
+
+	targets, err := db.GetTargets()
+	if err != nil {
+		t.Fatalf("get targets: %v", err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("len(targets) = %d, want 1", len(targets))
+	}
+	if targets[0] != target {
+		t.Fatalf("target = %+v, want %+v", targets[0], target)
+	}
+
+	if err := db.RemoveTarget(target.Platform, target.Id); err != nil {
+		t.Fatalf("remove target: %v", err)
+	}
+
+	targets, err = db.GetTargets()
+	if err != nil {
+		t.Fatalf("get targets after remove: %v", err)
+	}
+	if len(targets) != 0 {
+		t.Fatalf("len(targets) = %d, want 0", len(targets))
+	}
+}
