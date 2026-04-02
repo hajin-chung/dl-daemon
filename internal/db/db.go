@@ -14,6 +14,16 @@ type DB struct {
 	conn *sqlx.DB
 }
 
+type DownloadRow struct {
+	VideoID      string `db:"video_id"`
+	Title        string `db:"title"`
+	Platform     string `db:"platform"`
+	Status       string `db:"status"`
+	BytesWritten int64  `db:"bytes_written"`
+	TotalBytes   int64  `db:"total_bytes"`
+	ErrorMsg     string `db:"error_msg"`
+}
+
 func OpenDatabase() (*DB, error) {
 	baseDir, err := os.UserConfigDir()
 	if err != nil {
@@ -124,5 +134,16 @@ func (db *DB) SetStatus(item model.Content, status string, errorMsg string) erro
 	`
 	_, err := db.conn.Exec(query, status, errorMsg, item.DownloadID())
 	return err
+}
+
+func (db *DB) ListDownloads() ([]DownloadRow, error) {
+	rows := []DownloadRow{}
+	query := `
+	SELECT video_id, title, platform, status, bytes_written, total_bytes, error_msg
+	FROM downloads
+	ORDER BY updated_at DESC, video_id ASC
+	`
+	err := db.conn.Select(&rows, query)
+	return rows, err
 }
 
