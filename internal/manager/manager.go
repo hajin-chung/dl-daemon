@@ -6,12 +6,15 @@ package manager
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"deps.me/dl-daemon/internal/db"
 	"deps.me/dl-daemon/internal/model"
 	"deps.me/dl-daemon/internal/platform"
+	"deps.me/dl-daemon/internal/platform/chzzk"
 )
 
 type Manager struct {
@@ -22,10 +25,13 @@ type Manager struct {
 }
 
 func New(db *db.DB) *Manager {
-	providers := map[string]platform.Provider{
-		// TODO: add providers
-		// "provider name": Provider
+	providers := map[string]platform.Provider{}
+
+	baseOutputDir := "."
+	if home, err := os.UserHomeDir(); err == nil {
+		baseOutputDir = filepath.Join(home, "Downloads", "dld", "chzzk")
 	}
+	providers["chzzk"] = chzzk.NewVODProvider(baseOutputDir, "", "")
 
 	manager := Manager{
 		providers:      providers,
