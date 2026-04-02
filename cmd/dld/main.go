@@ -4,20 +4,30 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"deps.me/dl-daemon/internal/db"
+	"deps.me/dl-daemon/internal/logging"
 	"deps.me/dl-daemon/internal/manager"
 	"deps.me/dl-daemon/internal/model"
 )
 
 func main() {
+	logPath, err := logging.Setup(os.Stderr)
+	if err != nil {
+		log.Fatalf("setup logging: %v", err)
+	}
+
 	database, err := db.OpenDatabase()
 	if err != nil {
 		log.Fatalf("open database: %v", err)
 	}
+
+	slog.Info("logging initialized", "log_path", logPath)
+	slog.Info("database opened")
 
 	args := os.Args[1:]
 	if len(args) == 0 {
@@ -42,13 +52,16 @@ func main() {
 }
 
 func runDaemon(database *db.DB) {
+	slog.Info("daemon starting")
 	mgr := manager.New(database)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	if err := mgr.Run(ctx); err != nil {
+		slog.Error("manager stopped with error", "error", err)
 		log.Fatalf("run manager: %v", err)
 	}
+	slog.Info("daemon stopped")
 }
 
 func handleTarget(database *db.DB, args []string) {
@@ -71,6 +84,7 @@ func handleTarget(database *db.DB, args []string) {
 		if err := database.AddTarget(target); err != nil {
 			log.Fatalf("add target: %v", err)
 		}
+		slog.Info("target added", "platform", target.Platform, "id", target.Id, "label", target.Label)
 		fmt.Printf("Added target: %s %s", target.Platform, target.Id)
 		if target.Label != "" {
 			fmt.Printf(" (%s)", target.Label)
@@ -100,6 +114,7 @@ func handleTarget(database *db.DB, args []string) {
 		if err := database.RemoveTarget(args[1], args[2]); err != nil {
 			log.Fatalf("remove target: %v", err)
 		}
+		slog.Info("target removed", "platform", args[1], "id", args[2])
 		fmt.Printf("Removed target: %s %s\n", args[1], args[2])
 	default:
 		printTargetHelp()

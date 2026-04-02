@@ -31,6 +31,7 @@ func (p *VODProvider) Name() string {
 }
 
 func (p *VODProvider) Watch(id string) ([]model.Content, error) {
+	slog.Debug("fetching chzzk video list", "platform", p.Name(), "target_id", id)
 	videos, err := p.client.GetVideoList(id)
 	if err != nil {
 		return nil, err
@@ -53,6 +54,8 @@ func (p *VODProvider) Download(content model.Content) (platform.DownloadSession,
 	if err != nil {
 		return nil, fmt.Errorf("invalid video id %q: %w", content.VideoId, err)
 	}
+
+	slog.Info("preparing chzzk download", "video_id", content.VideoId, "title", content.Title)
 
 	session := NewSession(content.VideoId, p.Name())
 	session.UpdateStatus("starting")

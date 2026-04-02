@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -21,6 +22,7 @@ type playlist struct {
 
 func DownloadHLSVideo(session *Session, client *Client, videoURL string, outputName string) error {
 	if !HasBinary("ffmpeg") {
+		slog.Warn("ffmpeg binary not found")
 		return errors.New("ffmpeg not found in PATH")
 	}
 
@@ -40,6 +42,7 @@ func DownloadHLSVideo(session *Session, client *Client, videoURL string, outputN
 	}
 
 	totalSegments := int64(len(playlist.Segments))
+	slog.Info("parsed hls playlist", "segments", totalSegments, "output", outputName)
 	session.SetBytes(0, totalSegments)
 
 	cmd := exec.CommandContext(session.Context(), "ffmpeg",
@@ -151,12 +154,17 @@ func DownloadHLSVideo(session *Session, client *Client, videoURL string, outputN
 	}
 
 	if err := <-doneCh; err != nil {
+		slog.Error("hls download failed", "error", err)
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 		return err
 	}
 
-	return cmd.Wait()
+	err = cmd.Wait()
+	if err == nil {
+		slog.Info("hls download complete", "output", outputName)
+	}
+	return err
 }
 
 func getPlaylistURL(client *Client, url string) (string, error) {
