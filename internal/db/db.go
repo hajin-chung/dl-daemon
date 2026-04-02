@@ -1,0 +1,113 @@
+package db
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"deps.me/dl-daemon/internal/model"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
+)
+
+type DB struct {
+	conn *sqlx.DB
+}
+
+func OpenDatabase() (*DB, error) {
+	baseDir, err := os.UserConfigDir()
+	if err != nil {
+		return nil, fmt.Errorf("Could not find config dir: %w", err)
+	}
+
+	appPath := filepath.Join(baseDir, "dld")
+	dbPath := filepath.Join(appPath, "dld.db")
+
+	err = os.MkdirAll(appPath, 0755)
+	if err != nil {
+		return nil, fmt.Errorf("Could not create directory: %w", err)
+	}
+
+	db, err := sqlx.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not open database: %w", err)
+	}
+
+	err = initSchema(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DB{conn: db}, nil
+}
+
+func initSchema(db *sqlx.DB) error {
+	const query = `
+	CREATE TABLE IF NOT EXISTS metadata (
+		key TEXT PRIMARY KEY,
+		value TEXT
+	);
+	CREATE TABLE IF NOT EXISTS targets (
+		target_id INTEGER PRIMARY KEY AUTOINCREMENT,
+		platform TEXT,
+		id TEXT,
+		label TEXT
+	);
+	CREATE TABLE IF NOT EXISTS downloads (
+		video_id TEXT PRIMARY KEY,
+		title TEXT,
+		platform TEXT,
+		status TEXT,
+		bytes_written INTEGER DEFAULT 0,
+		total_bytes INTEGER DEFAULT 0,
+		error_msg TEXT,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	`
+	_, err := db.Exec(query)
+	return err
+}
+
+func (db *DB) GetTargets() ([]model.Target, error) {
+	targets := []model.Target{}
+	query := `SELECT platform, id, label FROM targets`
+	err := db.conn.Select(&targets, query)
+	return targets, err
+}
+
+func (db *DB) Exists(item model.Content) bool {
+	exists := false
+	query := "SELECT EXISTS(SELECT 1 FROM downloads WHERE video_id = ?)"
+	_ = db.conn.Get(&exists, query, item.DownloadID())
+	return exists
+}
+
+func (db *DB) InsertDownload(item model.Content) error {
+	query := `
+	INSERT INTO downloads(video_id, title, platform, status)
+	VALUES (?, ?, ?, ?);
+	`
+	_, err := db.conn.Exec(query, item.DownloadID(), item.Title, item.Platform, "pending")
+	return err
+}
+
+func (db *DB) UpdateProgress(progress model.DownloadProgress) error {
+	query := `
+	UPDATE downloads
+	SET bytes_written = ?, total_bytes = ?, status = ?
+	WHERE video_id = ?;
+	`
+	_, err := db.conn.Exec(query, progress.BytesWritten, progress.TotalBytes, progress.Status, progress.DownloadID())
+	return err
+}
+
+func (db *DB) SetStatus(item model.Content, status string, errorMsg string) error {
+	query := `
+	UPDATE downloads
+	SET status = ?, error_msg = ?
+	WHERE video_id = ?;
+	`
+	_, err := db.conn.Exec(query, status, errorMsg, item.DownloadID())
+	return err
+}
+
