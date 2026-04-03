@@ -79,5 +79,5 @@ func (p *Provider) download(session *Session, content model.Content) error {
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}
-	return RecordLive(session, hlsURL, outputPath)
+	return RecordLive(session, p.client, hlsURL, outputPath, detail.LiveID)
 }

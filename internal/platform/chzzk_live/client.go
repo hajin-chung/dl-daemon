@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	neturl "net/url"
-	"strconv"
 	"strings"
 )
 
@@ -167,88 +165,18 @@ func (d *LiveDetailContent) HLSPath(client *Client) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	variantURL, err := selectHighestVariant(selected.Path, masterBody)
+	variants, err := parseMasterPlaylist(selected.Path, masterBody)
 	if err != nil {
 		return "", err
 	}
-	return variantURL, nil
-}
-
-func selectHighestVariant(base string, master string) (string, error) {
-	lines := strings.Split(master, "\n")
-	bestBandwidth := -1
-	bestResolution := -1
-	bestURL := ""
-
-	for i := 0; i < len(lines); i++ {
-		line := strings.TrimSpace(lines[i])
-		if !strings.HasPrefix(line, "#EXT-X-STREAM-INF:") {
-			continue
-		}
-		if i+1 >= len(lines) {
-			break
-		}
-		attrs := strings.TrimPrefix(line, "#EXT-X-STREAM-INF:")
-		bandwidth := parseIntAttr(attrs, "BANDWIDTH")
-		resolution := parseResolutionHeight(attrs)
-		candidate := strings.TrimSpace(lines[i+1])
-		candidateURL := resolveURL(base, candidate)
-		if resolution > bestResolution || (resolution == bestResolution && bandwidth > bestBandwidth) {
-			bestResolution = resolution
-			bestBandwidth = bandwidth
-			bestURL = candidateURL
-		}
-		i++
+	if len(variants) == 0 {
+		return "", fmt.Errorf("no variants in HLS master playlist")
 	}
-
-	if bestURL == "" {
-		return "", fmt.Errorf("no variant playlist found in master HLS")
-	}
-	return bestURL, nil
-}
-
-func parseIntAttr(attrs string, key string) int {
-	for _, part := range strings.Split(attrs, ",") {
-		part = strings.TrimSpace(part)
-		if !strings.HasPrefix(part, key+"=") {
-			continue
-		}
-		value := strings.TrimPrefix(part, key+"=")
-		n, err := strconv.Atoi(value)
-		if err == nil {
-			return n
+	best := variants[0]
+	for _, candidate := range variants[1:] {
+		if candidate.Height > best.Height || (candidate.Height == best.Height && candidate.Bandwidth > best.Bandwidth) {
+			best = candidate
 		}
 	}
-	return -1
-}
-
-func parseResolutionHeight(attrs string) int {
-	for _, part := range strings.Split(attrs, ",") {
-		part = strings.TrimSpace(part)
-		if !strings.HasPrefix(part, "RESOLUTION=") {
-			continue
-		}
-		value := strings.TrimPrefix(part, "RESOLUTION=")
-		pieces := strings.SplitN(value, "x", 2)
-		if len(pieces) != 2 {
-			return -1
-		}
-		n, err := strconv.Atoi(pieces[1])
-		if err == nil {
-			return n
-		}
-	}
-	return -1
-}
-
-func resolveURL(base string, ref string) string {
-	baseURL, err := neturl.Parse(base)
-	if err != nil {
-		return ref
-	}
-	refURL, err := neturl.Parse(ref)
-	if err != nil {
-		return ref
-	}
-	return baseURL.ResolveReference(refURL).String()
+	return best.URL, nil
 }
