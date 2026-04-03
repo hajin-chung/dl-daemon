@@ -61,7 +61,7 @@ func (p *VODProvider) Download(content model.Content) (platform.DownloadSession,
 	session.UpdateStatus("starting")
 
 	go func() {
-		err := p.download(session, videoNo)
+		err := p.download(session, content, videoNo)
 		if err != nil {
 			session.UpdateStatus("failed")
 			session.Finish(err)
@@ -74,7 +74,7 @@ func (p *VODProvider) Download(content model.Content) (platform.DownloadSession,
 	return session, nil
 }
 
-func (p *VODProvider) download(session *Session, videoNo int) error {
+func (p *VODProvider) download(session *Session, content model.Content, videoNo int) error {
 	info, err := p.client.GetVideoInfo(videoNo)
 	if err != nil {
 		return err
@@ -84,7 +84,11 @@ func (p *VODProvider) download(session *Session, videoNo int) error {
 	if err != nil {
 		return err
 	}
-	outputPath := filepath.Join(p.outputDir, outputName)
+	outputDir := p.outputDir
+	if content.OutputDir != "" {
+		outputDir = content.OutputDir
+	}
+	outputPath := filepath.Join(outputDir, outputName)
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}

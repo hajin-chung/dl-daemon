@@ -3,16 +3,18 @@ package model
 import "fmt"
 
 type Target struct {
-	Platform string `db:"platform"`
-	Id       string `db:"id"`
-	Label    string `db:"label"`
+	Platform  string `db:"platform"`
+	Id        string `db:"id"`
+	Label     string `db:"label"`
+	OutputDir string `db:"output_dir"`
 }
 
 type Content struct {
-	VideoId  string
-	TargetId string
-	Platform string
-	Title    string
+	VideoId   string
+	TargetId  string
+	Platform  string
+	Title     string
+	OutputDir string
 }
 
 func (c Content) DownloadID() string {

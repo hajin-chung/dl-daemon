@@ -87,7 +87,11 @@ func (p *Provider) download(session *Session, content model.Content) error {
 		return err
 	}
 
-	outputPath := filepath.Join(p.outputDir, outputName(anime.Title, episode))
+	outputDir := p.outputDir
+	if content.OutputDir != "" {
+		outputDir = content.OutputDir
+	}
+	outputPath := filepath.Join(outputDir, outputName(anime.Title, episode))
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}

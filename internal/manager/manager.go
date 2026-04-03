@@ -137,7 +137,8 @@ func (m *Manager) watchLoop(ctx context.Context) error {
 				providerLog.Info("watch completed", "items_found", len(items))
 
 				for _, item := range items {
-					itemLog := providerLog.With("video_id", item.VideoId, "title", item.Title)
+					item.OutputDir = t.OutputDir
+					itemLog := providerLog.With("video_id", item.VideoId, "title", item.Title, "output_dir", item.OutputDir)
 					if m.db.Exists(item) {
 						itemLog.Debug("download already recorded, skipping")
 						continue

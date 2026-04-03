@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"deps.me/dl-daemon/internal/model"
 	"github.com/jmoiron/sqlx"
@@ -61,7 +62,8 @@ func initSchema(db *sqlx.DB) error {
 		target_id INTEGER PRIMARY KEY AUTOINCREMENT,
 		platform TEXT,
 		id TEXT,
-		label TEXT
+		label TEXT,
+		output_dir TEXT
 	);
 	CREATE TABLE IF NOT EXISTS downloads (
 		video_id TEXT PRIMARY KEY,
@@ -75,12 +77,19 @@ func initSchema(db *sqlx.DB) error {
 	);
 	`
 	_, err := db.Exec(query)
-	return err
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`ALTER TABLE targets ADD COLUMN output_dir TEXT`)
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		return err
+	}
+	return nil
 }
 
 func (db *DB) GetTargets() ([]model.Target, error) {
 	targets := []model.Target{}
-	query := `SELECT platform, id, label FROM targets ORDER BY target_id ASC`
+	query := `SELECT platform, id, label, COALESCE(output_dir, '') AS output_dir FROM targets ORDER BY target_id ASC`
 	err := db.conn.Select(&targets, query)
 	return targets, err
 }
@@ -112,10 +121,16 @@ func (db *DB) ListMetadata() ([]MetadataRow, error) {
 
 func (db *DB) AddTarget(target model.Target) error {
 	query := `
-	INSERT INTO targets(platform, id, label)
-	VALUES (?, ?, ?);
+	INSERT INTO targets(platform, id, label, output_dir)
+	VALUES (?, ?, ?, ?);
 	`
-	_, err := db.conn.Exec(query, target.Platform, target.Id, target.Label)
+	_, err := db.conn.Exec(query, target.Platform, target.Id, target.Label, target.OutputDir)
+	return err
+}
+
+func (db *DB) SetTargetOutputDir(platform string, id string, outputDir string) error {
+	query := `UPDATE targets SET output_dir = ? WHERE platform = ? AND id = ?;`
+	_, err := db.conn.Exec(query, outputDir, platform, id)
 	return err
 }
 

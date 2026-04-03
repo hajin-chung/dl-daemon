@@ -80,18 +80,22 @@ func handleTarget(database *db.DB, args []string) {
 	switch args[0] {
 	case "add":
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: dld target add <platform> <id> [label]")
+			fmt.Fprintln(os.Stderr, "usage: dld target add <platform> <id> [label] [output_dir]")
 			os.Exit(1)
 		}
 		label := ""
 		if len(args) >= 4 {
 			label = args[3]
 		}
-		target := model.Target{Platform: args[1], Id: args[2], Label: label}
+		outputDir := ""
+		if len(args) >= 5 {
+			outputDir = args[4]
+		}
+		target := model.Target{Platform: args[1], Id: args[2], Label: label, OutputDir: outputDir}
 		if err := database.AddTarget(target); err != nil {
 			log.Fatalf("add target: %v", err)
 		}
-		slog.Info("target added", "platform", target.Platform, "id", target.Id, "label", target.Label)
+		slog.Info("target added", "platform", target.Platform, "id", target.Id, "label", target.Label, "output_dir", target.OutputDir)
 		fmt.Printf("Added target: %s %s", target.Platform, target.Id)
 		if target.Label != "" {
 			fmt.Printf(" (%s)", target.Label)
@@ -107,12 +111,25 @@ func handleTarget(database *db.DB, args []string) {
 			return
 		}
 		for _, target := range targets {
+			fmt.Printf("%s\t%s", target.Platform, target.Id)
 			if target.Label != "" {
-				fmt.Printf("%s\t%s\t%s\n", target.Platform, target.Id, target.Label)
-			} else {
-				fmt.Printf("%s\t%s\n", target.Platform, target.Id)
+				fmt.Printf("\t%s", target.Label)
 			}
+			if target.OutputDir != "" {
+				fmt.Printf("\t%s", target.OutputDir)
+			}
+			fmt.Println()
 		}
+	case "set-output":
+		if len(args) != 4 {
+			fmt.Fprintln(os.Stderr, "usage: dld target set-output <platform> <id> <output_dir>")
+			os.Exit(1)
+		}
+		if err := database.SetTargetOutputDir(args[1], args[2], args[3]); err != nil {
+			log.Fatalf("set target output: %v", err)
+		}
+		slog.Info("target output updated", "platform", args[1], "id", args[2], "output_dir", args[3])
+		fmt.Printf("Updated target output: %s %s -> %s\n", args[1], args[2], args[3])
 	case "remove", "rm":
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: dld target remove <platform> <id>")
@@ -273,8 +290,9 @@ func printHelp() {
 	fmt.Println("  dld downloads")
 	fmt.Println()
 	fmt.Println("Target commands:")
-	fmt.Println("  dld target add <platform> <id> [label]")
+	fmt.Println("  dld target add <platform> <id> [label] [output_dir]")
 	fmt.Println("  dld target list")
+	fmt.Println("  dld target set-output <platform> <id> <output_dir>")
 	fmt.Println("  dld target remove <platform> <id>")
 	fmt.Println()
 	fmt.Println("Config commands:")
@@ -289,8 +307,9 @@ func printHelp() {
 func printTargetHelp() {
 	fmt.Println("dld target")
 	fmt.Println("Usage:")
-	fmt.Println("  dld target add <platform> <id> [label]")
+	fmt.Println("  dld target add <platform> <id> [label] [output_dir]")
 	fmt.Println("  dld target list")
+	fmt.Println("  dld target set-output <platform> <id> <output_dir>")
 	fmt.Println("  dld target remove <platform> <id>")
 }
 
