@@ -92,5 +92,5 @@ func (p *Provider) download(session *Session, content model.Content) error {
 		return err
 	}
 
-	return DownloadHLSVideo(session, hlsURL, outputPath)
+	return DownloadHLSVideo(session, p.client, hlsURL, outputPath)
 }

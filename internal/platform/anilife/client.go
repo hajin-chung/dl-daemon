@@ -40,6 +40,30 @@ func NewClient() *Client {
 	return &Client{client: &http.Client{Transport: &transport{}}}
 }
 
+func (c *Client) GetBytesWithHeaders(url string, headers map[string]string) ([]byte, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	res, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	return io.ReadAll(res.Body)
+}
+
+func (c *Client) GetBodyWithReferer(url string, referer string) (string, error) {
+	body, err := c.GetBytesWithHeaders(url, map[string]string{"Referer": referer})
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
 type Anime struct {
 	ID    string
 	Title string
