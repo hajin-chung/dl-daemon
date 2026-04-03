@@ -15,6 +15,7 @@ import (
 	"deps.me/dl-daemon/internal/db"
 	"deps.me/dl-daemon/internal/model"
 	"deps.me/dl-daemon/internal/platform"
+	"deps.me/dl-daemon/internal/platform/anilife"
 	"deps.me/dl-daemon/internal/platform/chzzk"
 )
 
@@ -30,7 +31,7 @@ func New(db *db.DB) *Manager {
 
 	baseOutputDir := "."
 	if home, err := os.UserHomeDir(); err == nil {
-		baseOutputDir = filepath.Join(home, "Downloads", "dld", "chzzk")
+		baseOutputDir = filepath.Join(home, "Downloads", "dld")
 	}
 	aut, err := db.GetMetadata("chzzk.nid_aut")
 	if err != nil {
@@ -46,7 +47,8 @@ func New(db *db.DB) *Manager {
 			ses = ""
 		}
 	}
-	providers["chzzk"] = chzzk.NewVODProvider(baseOutputDir, aut, ses)
+	providers["chzzk"] = chzzk.NewVODProvider(filepath.Join(baseOutputDir, "chzzk"), aut, ses)
+	providers["anilife"] = anilife.NewProvider(filepath.Join(baseOutputDir, "anilife"))
 	for name := range providers {
 		slog.Info("provider registered", "provider", name)
 	}
@@ -225,4 +227,3 @@ func (m *Manager) stopActiveSessions() {
 		session.Stop()
 	}
 }
-
