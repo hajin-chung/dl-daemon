@@ -1,0 +1,46 @@
+{{define "config"}}{{template "base" .}}{{end}}
+{{define "content"}}
+<div class="split">
+  <section class="panel">
+    <h2>Set config value</h2>
+    <form method="post" action="/config">
+      <div class="form-row">
+        <label>Key
+          <input name="key" placeholder="chzzk.nid_aut" required>
+        </label>
+        <label>Value
+          <input name="value" placeholder="Stored in sqlite metadata">
+        </label>
+      </div>
+      <button type="submit">Save config</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Common keys</h2>
+    <ul class="muted">
+      <li><code>chzzk.nid_aut</code></li>
+      <li><code>chzzk.nid_ses</code></li>
+      <li>Legacy keys <code>NID_AUT</code> and <code>NID_SES</code> still work.</li>
+    </ul>
+  </section>
+</div>
+<section class="panel" style="margin-top:18px;">
+  <h2>Stored config</h2>
+  {{if .Config}}
+  <table>
+    <thead><tr><th>Key</th><th>Value</th><th>Notes</th></tr></thead>
+    <tbody>
+      {{range .Config}}
+      <tr>
+        <td><code>{{.Key}}</code></td>
+        <td><code>{{.MaskedValue}}</code></td>
+        <td>{{if .Sensitive}}<span class="muted">Masked in UI</span>{{else}}<span class="muted">Plain value</span>{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No config values stored yet.</p>
+  {{end}}
+</section>
+{{end}}

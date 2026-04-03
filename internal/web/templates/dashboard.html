@@ -1,0 +1,63 @@
+{{define "dashboard"}}{{template "base" .}}{{end}}
+{{define "content"}}
+<div class="grid cards">
+  <section class="panel"><div class="muted">Targets</div><div class="metric">{{.Dashboard.TargetCount}}</div><div class="small muted">Watched channels, series, or live sources.</div></section>
+  <section class="panel"><div class="muted">Downloads tracked</div><div class="metric">{{.Dashboard.DownloadCount}}</div><div class="small muted">Pending, active, complete, and failed.</div></section>
+  <section class="panel"><div class="muted">Active now</div><div class="metric">{{.Dashboard.ActiveDownloadCount}}</div><div class="small muted">Pending, starting, or downloading.</div></section>
+  <section class="panel"><div class="muted">Config keys</div><div class="metric">{{.Dashboard.ConfigCount}}</div><div class="small muted">Tokens and runtime settings in sqlite metadata.</div></section>
+</div>
+<div class="split" style="margin-top:18px;">
+  <section class="panel stack">
+    <div>
+      <h2>Overview</h2>
+      <p class="muted">Use <code>dld run</code> for the daemon and <code>dld web</code> for this UI. The web app reads the same sqlite state, so it stays lightweight and honest.</p>
+    </div>
+    <div class="grid cards">
+      <div class="panel"><div class="muted">Completed</div><div class="metric">{{.Dashboard.CompletedCount}}</div></div>
+      <div class="panel"><div class="muted">Failed</div><div class="metric">{{.Dashboard.FailedCount}}</div></div>
+    </div>
+    <div>
+      <h3>Targets by platform</h3>
+      {{if .Dashboard.TargetsByPlatform}}
+      <div class="actions">
+        {{range .Dashboard.TargetsByPlatform}}<span class="pill">{{.Name}} · {{.Count}}</span>{{end}}
+      </div>
+      {{else}}
+      <p class="muted">No targets yet. Add one on the targets page.</p>
+      {{end}}
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Quick start</h2>
+    <ol class="muted">
+      <li>Add a target for <code>chzzk</code>, <code>chzzk_live</code>, or <code>anilife</code>.</li>
+      <li>Set provider credentials in Config if needed.</li>
+      <li>Run the daemon separately so it can watch targets and perform downloads.</li>
+      <li>Use per-target output directories when you want different media buckets.</li>
+    </ol>
+    {{if not .Dashboard.HasConfiguredTargets}}
+    <p><a href="/targets">Add your first target →</a></p>
+    {{end}}
+  </section>
+</div>
+<section class="panel" style="margin-top:18px;">
+  <h2>Recent downloads</h2>
+  {{if .Dashboard.RecentDownloads}}
+  <table>
+    <thead><tr><th>Platform</th><th>Title</th><th>Status</th><th>Progress</th></tr></thead>
+    <tbody>
+      {{range .Dashboard.RecentDownloads}}
+      <tr>
+        <td>{{.Platform}}</td>
+        <td><strong>{{.Title}}</strong><div class="small muted">{{.VideoID}}</div></td>
+        <td><span class="pill {{.Status}}">{{.Status}}</span></td>
+        <td>{{.ProgressText}}{{if .ErrorMsg}}<div class="small" style="color:#ffb0b0;">{{.ErrorMsg}}</div>{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No downloads recorded yet.</p>
+  {{end}}
+</section>
+{{end}}

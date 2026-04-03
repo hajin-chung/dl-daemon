@@ -1,0 +1,25 @@
+{{define "downloads"}}{{template "base" .}}{{end}}
+{{define "content"}}
+<section class="panel">
+  <h2>Downloads</h2>
+  <p class="muted">This is the daemon’s tracked history from sqlite. Progress updates appear here whenever the daemon sync loop writes them.</p>
+  {{if .Downloads}}
+  <table>
+    <thead><tr><th>Platform</th><th>Title</th><th>Status</th><th>Progress</th><th>Download ID</th></tr></thead>
+    <tbody>
+      {{range .Downloads}}
+      <tr>
+        <td>{{.Platform}}</td>
+        <td><strong>{{.Title}}</strong></td>
+        <td><span class="pill {{.Status}}">{{.Status}}</span></td>
+        <td>{{.ProgressText}}{{if .ErrorMsg}}<div class="small" style="color:#ffb0b0;">{{.ErrorMsg}}</div>{{end}}</td>
+        <td><code>{{.VideoID}}</code></td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No downloads recorded yet.</p>
+  {{end}}
+</section>
+{{end}}

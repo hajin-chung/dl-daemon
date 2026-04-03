@@ -20,17 +20,21 @@ Implemented:
 - sqlite-backed target/download tracking
 - provider/session abstraction
 - Chzzk VOD provider
+- Chzzk live provider
+- Anilife provider
 - structured console and file logging
 - config storage in the metadata table
 - Chzzk token validation command
+- per-target output directory overrides
+- lightweight local web UI
 
 Still needed:
-- watch-once/debug command
+- graceful shutdown / recovery polish
 - richer progress semantics
 - retry/backoff hardening
-- Chzzk live provider
-- Anilife provider
-- richer target configuration
+- crash recovery / resume
+- richer web UI interactions
+- richer target/configuration UX
 
 ## Build
 
@@ -62,13 +66,15 @@ dld target <subcommand>
 dld config <subcommand>
 dld chzzk <subcommand>
 dld downloads
+dld web [addr]
 ```
 
 ### Target commands
 
 ```bash
-dld target add <platform> <id> [label]
+dld target add <platform> <id> [label] [output_dir]
 dld target list
+dld target set-output <platform> <id> <output_dir>
 dld target remove <platform> <id>
 ```
 
@@ -111,6 +117,21 @@ dld downloads
 
 Lists tracked downloads and their current status.
 
+### Web UI
+
+```bash
+dld web
+dld web 127.0.0.1:8080
+```
+
+The web UI is a lightweight local control panel with pages for:
+- dashboard
+- targets
+- downloads
+- config
+
+It reads and writes the same sqlite state as the CLI and daemon.
+
 ## Logging
 
 `dld` logs in two places:
@@ -122,7 +143,7 @@ Environment variables:
 
 ```bash
 DLD_LOG_LEVEL=debug
-aDLD_FILE_LOG_LEVEL=debug
+DLD_FILE_LOG_LEVEL=debug
 ```
 
 Common levels:

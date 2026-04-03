@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"deps.me/dl-daemon/internal/manager"
 	"deps.me/dl-daemon/internal/model"
 	"deps.me/dl-daemon/internal/platform/chzzk"
+	"deps.me/dl-daemon/internal/web"
 )
 
 func main() {
@@ -49,6 +51,8 @@ func main() {
 		handleChzzk(database, args[1:])
 	case "download", "downloads":
 		handleDownloads(database, args[1:])
+	case "web":
+		handleWeb(database, args[1:])
 	case "help", "-h", "--help":
 		printHelp()
 	default:
@@ -237,6 +241,24 @@ func handleChzzk(database *db.DB, args []string) {
 	}
 }
 
+func handleWeb(database *db.DB, args []string) {
+	addr := "127.0.0.1:8080"
+	if len(args) >= 1 && strings.TrimSpace(args[0]) != "" {
+		addr = args[0]
+	}
+
+	server, err := web.New(database)
+	if err != nil {
+		log.Fatalf("init web server: %v", err)
+	}
+
+	slog.Info("web ui starting", "addr", addr)
+	fmt.Printf("dld web listening on http://%s\n", addr)
+	if err := http.ListenAndServe(addr, server.Handler()); err != nil {
+		log.Fatalf("serve web ui: %v", err)
+	}
+}
+
 func handleDownloads(database *db.DB, args []string) {
 	downloads, err := database.ListDownloads()
 	if err != nil {
@@ -288,6 +310,7 @@ func printHelp() {
 	fmt.Println("  dld config <subcommand>")
 	fmt.Println("  dld chzzk <subcommand>")
 	fmt.Println("  dld downloads")
+	fmt.Println("  dld web [addr]")
 	fmt.Println()
 	fmt.Println("Target commands:")
 	fmt.Println("  dld target add <platform> <id> [label] [output_dir]")

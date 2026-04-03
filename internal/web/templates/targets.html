@@ -1,0 +1,73 @@
+{{define "targets"}}{{template "base" .}}{{end}}
+{{define "content"}}
+<div class="split">
+  <section class="panel">
+    <h2>Add target</h2>
+    <form method="post" action="/targets">
+      <div class="form-row">
+        <label>Platform
+          <select name="platform">
+            {{range .PlatformOptions}}<option value="{{.}}">{{.}}</option>{{end}}
+          </select>
+        </label>
+        <label>Target ID
+          <input name="id" placeholder="channel, anime, or live source id" required>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Label
+          <input name="label" placeholder="Optional friendly name">
+        </label>
+        <label>Output directory
+          <input name="output_dir" placeholder="Optional override, e.g. /srv/media/chzzk">
+        </label>
+      </div>
+      <button type="submit">Save target</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Notes</h2>
+    <ul class="muted">
+      <li>Per-target output directory overrides the provider default.</li>
+      <li>Leave output directory blank to use the provider’s base path under <code>~/Downloads/dld</code>.</li>
+      <li>The daemon polls stored targets; the web UI just manages state.</li>
+    </ul>
+  </section>
+</div>
+<section class="panel" style="margin-top:18px;">
+  <h2>Configured targets</h2>
+  {{if .Targets}}
+  <table>
+    <thead><tr><th>Platform</th><th>ID</th><th>Label</th><th>Output directory</th><th>Actions</th></tr></thead>
+    <tbody>
+      {{range .Targets}}
+      <tr>
+        <td>{{.Platform}}</td>
+        <td><code>{{.ID}}</code></td>
+        <td>{{if .Label}}{{.Label}}{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>
+          <form method="post" action="/targets/output">
+            <input type="hidden" name="platform" value="{{.Platform}}">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <div class="actions">
+              <input name="output_dir" value="{{.OutputDir}}" placeholder="default provider path">
+              <button type="submit" class="secondary">Update output</button>
+            </div>
+          </form>
+        </td>
+        <td>
+          <form method="post" action="/targets/delete" onsubmit="return confirm('Remove this target?');">
+            <input type="hidden" name="platform" value="{{.Platform}}">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <button type="submit" class="danger">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No targets configured yet.</p>
+  {{end}}
+</section>
+{{end}}
