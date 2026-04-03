@@ -89,10 +89,18 @@ type LivePlayback struct {
 }
 
 type LivePlaybackMedia struct {
-	MediaID  string `json:"mediaId"`
-	Protocol string `json:"protocol"`
-	Path     string `json:"path"`
-	Latency  string `json:"latency,omitempty"`
+	MediaID       string                     `json:"mediaId"`
+	Protocol      string                     `json:"protocol"`
+	Path          string                     `json:"path"`
+	Latency       string                     `json:"latency,omitempty"`
+	EncodingTrack []LivePlaybackEncodingTrack `json:"encodingTrack,omitempty"`
+}
+
+type LivePlaybackEncodingTrack struct {
+	EncodingTrackID string `json:"encodingTrackId"`
+	VideoBitRate    int    `json:"videoBitRate,omitempty"`
+	VideoWidth      int    `json:"videoWidth,omitempty"`
+	VideoHeight     int    `json:"videoHeight,omitempty"`
 }
 
 func (c *Client) GetLiveDetail(channelID string) (*LiveDetailContent, error) {
@@ -128,10 +136,73 @@ func (d *LiveDetailContent) HLSPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for _, media := range playback.Media {
+
+	var selected *LivePlaybackMedia
+	for i, media := range playback.Media {
 		if media.MediaID == "HLS" && media.Path != "" {
-			return media.Path, nil
+			selected = &playback.Media[i]
+			break
 		}
 	}
-	return "", fmt.Errorf("no HLS media path found")
+	if selected == nil {
+		return "", fmt.Errorf("no HLS media path found")
+	}
+
+	bestTrack := selectHighestTrack(selected.EncodingTrack)
+	if bestTrack != nil {
+		trackPath, err := deriveTrackPlaylistPath(selected.Path, bestTrack.EncodingTrackID)
+		if err == nil {
+			return trackPath, nil
+		}
+	}
+
+	return selected.Path, nil
+}
+
+func selectHighestTrack(tracks []LivePlaybackEncodingTrack) *LivePlaybackEncodingTrack {
+	if len(tracks) == 0 {
+		return nil
+	}
+	best := &tracks[0]
+	for i := 1; i < len(tracks); i++ {
+		candidate := &tracks[i]
+		if candidate.VideoHeight > best.VideoHeight {
+			best = candidate
+			continue
+		}
+		if candidate.VideoHeight == best.VideoHeight && candidate.VideoBitRate > best.VideoBitRate {
+			best = candidate
+		}
+	}
+	return best
+}
+
+func deriveTrackPlaylistPath(masterPath string, trackID string) (string, error) {
+	if masterPath == "" {
+		return "", fmt.Errorf("empty master path")
+	}
+	if trackID == "" || trackID == "audioOnly" {
+		return masterPath, nil
+	}
+	idx := strings.LastIndex(masterPath, "/")
+	if idx == -1 {
+		return "", fmt.Errorf("invalid master path")
+	}
+	prefix := masterPath[:idx+1]
+	fileAndQuery := masterPath[idx+1:]
+	parts := strings.SplitN(fileAndQuery, "?", 2)
+	file := parts[0]
+	query := ""
+	if len(parts) == 2 {
+		query = "?" + parts[1]
+	}
+	if strings.HasSuffix(file, "_hls_playlist.m3u8") {
+		file = strings.TrimSuffix(file, "_hls_playlist.m3u8") + "_hls_" + trackID + "_playlist.m3u8"
+		return prefix + file + query, nil
+	}
+	if strings.HasSuffix(file, "_playlist.m3u8") {
+		file = strings.TrimSuffix(file, "_playlist.m3u8") + "_" + trackID + "_playlist.m3u8"
+		return prefix + file + query, nil
+	}
+	return masterPath, nil
 }
