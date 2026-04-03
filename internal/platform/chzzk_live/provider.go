@@ -71,7 +71,7 @@ func (p *Provider) download(session *Session, content model.Content) error {
 	if strconv.Itoa(detail.LiveID) != content.VideoId {
 		return fmt.Errorf("live session changed before download start: expected %s, got %d", content.VideoId, detail.LiveID)
 	}
-	hlsURL, err := detail.HLSPath()
+	hlsURL, err := detail.HLSPath(p.client)
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
+	"strconv"
 	"strings"
 )
 
@@ -28,6 +30,19 @@ func (c *Client) Get(url string) (*http.Response, error) {
 		req.Header.Add("Cookie", c.Cookie)
 	}
 	return c.client.Do(req)
+}
+
+func (c *Client) GetBody(url string) (string, error) {
+	res, err := c.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
 type liveStatusResponse struct {
@@ -131,7 +146,7 @@ func ParseLivePlayback(raw string) (*LivePlayback, error) {
 	return playback, nil
 }
 
-func (d *LiveDetailContent) HLSPath() (string, error) {
+func (d *LiveDetailContent) HLSPath(client *Client) (string, error) {
 	playback, err := ParseLivePlayback(d.LivePlaybackJSON)
 	if err != nil {
 		return "", err
@@ -148,61 +163,92 @@ func (d *LiveDetailContent) HLSPath() (string, error) {
 		return "", fmt.Errorf("no HLS media path found")
 	}
 
-	bestTrack := selectHighestTrack(selected.EncodingTrack)
-	if bestTrack != nil {
-		trackPath, err := deriveTrackPlaylistPath(selected.Path, bestTrack.EncodingTrackID)
-		if err == nil {
-			return trackPath, nil
-		}
+	masterBody, err := client.GetBody(selected.Path)
+	if err != nil {
+		return "", err
 	}
-
-	return selected.Path, nil
+	variantURL, err := selectHighestVariant(selected.Path, masterBody)
+	if err != nil {
+		return "", err
+	}
+	return variantURL, nil
 }
 
-func selectHighestTrack(tracks []LivePlaybackEncodingTrack) *LivePlaybackEncodingTrack {
-	if len(tracks) == 0 {
-		return nil
-	}
-	best := &tracks[0]
-	for i := 1; i < len(tracks); i++ {
-		candidate := &tracks[i]
-		if candidate.VideoHeight > best.VideoHeight {
-			best = candidate
+func selectHighestVariant(base string, master string) (string, error) {
+	lines := strings.Split(master, "\n")
+	bestBandwidth := -1
+	bestResolution := -1
+	bestURL := ""
+
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if !strings.HasPrefix(line, "#EXT-X-STREAM-INF:") {
 			continue
 		}
-		if candidate.VideoHeight == best.VideoHeight && candidate.VideoBitRate > best.VideoBitRate {
-			best = candidate
+		if i+1 >= len(lines) {
+			break
 		}
+		attrs := strings.TrimPrefix(line, "#EXT-X-STREAM-INF:")
+		bandwidth := parseIntAttr(attrs, "BANDWIDTH")
+		resolution := parseResolutionHeight(attrs)
+		candidate := strings.TrimSpace(lines[i+1])
+		candidateURL := resolveURL(base, candidate)
+		if resolution > bestResolution || (resolution == bestResolution && bandwidth > bestBandwidth) {
+			bestResolution = resolution
+			bestBandwidth = bandwidth
+			bestURL = candidateURL
+		}
+		i++
 	}
-	return best
+
+	if bestURL == "" {
+		return "", fmt.Errorf("no variant playlist found in master HLS")
+	}
+	return bestURL, nil
 }
 
-func deriveTrackPlaylistPath(masterPath string, trackID string) (string, error) {
-	if masterPath == "" {
-		return "", fmt.Errorf("empty master path")
+func parseIntAttr(attrs string, key string) int {
+	for _, part := range strings.Split(attrs, ",") {
+		part = strings.TrimSpace(part)
+		if !strings.HasPrefix(part, key+"=") {
+			continue
+		}
+		value := strings.TrimPrefix(part, key+"=")
+		n, err := strconv.Atoi(value)
+		if err == nil {
+			return n
+		}
 	}
-	if trackID == "" || trackID == "audioOnly" {
-		return masterPath, nil
+	return -1
+}
+
+func parseResolutionHeight(attrs string) int {
+	for _, part := range strings.Split(attrs, ",") {
+		part = strings.TrimSpace(part)
+		if !strings.HasPrefix(part, "RESOLUTION=") {
+			continue
+		}
+		value := strings.TrimPrefix(part, "RESOLUTION=")
+		pieces := strings.SplitN(value, "x", 2)
+		if len(pieces) != 2 {
+			return -1
+		}
+		n, err := strconv.Atoi(pieces[1])
+		if err == nil {
+			return n
+		}
 	}
-	idx := strings.LastIndex(masterPath, "/")
-	if idx == -1 {
-		return "", fmt.Errorf("invalid master path")
+	return -1
+}
+
+func resolveURL(base string, ref string) string {
+	baseURL, err := neturl.Parse(base)
+	if err != nil {
+		return ref
 	}
-	prefix := masterPath[:idx+1]
-	fileAndQuery := masterPath[idx+1:]
-	parts := strings.SplitN(fileAndQuery, "?", 2)
-	file := parts[0]
-	query := ""
-	if len(parts) == 2 {
-		query = "?" + parts[1]
+	refURL, err := neturl.Parse(ref)
+	if err != nil {
+		return ref
 	}
-	if strings.HasSuffix(file, "_hls_playlist.m3u8") {
-		file = strings.TrimSuffix(file, "_hls_playlist.m3u8") + "_hls_" + trackID + "_playlist.m3u8"
-		return prefix + file + query, nil
-	}
-	if strings.HasSuffix(file, "_playlist.m3u8") {
-		file = strings.TrimSuffix(file, "_playlist.m3u8") + "_" + trackID + "_playlist.m3u8"
-		return prefix + file + query, nil
-	}
-	return masterPath, nil
+	return baseURL.ResolveReference(refURL).String()
 }
