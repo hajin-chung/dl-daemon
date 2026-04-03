@@ -232,11 +232,9 @@ func handleDownloads(database *db.DB, args []string) {
 
 	_ = args
 	for _, download := range downloads {
-		if download.ErrorMsg != "" {
-			fmt.Printf("%s\t%s\t%s\t%d/%d\t%s\n", download.Platform, download.VideoID, download.Status, download.BytesWritten, download.TotalBytes, download.Title)
-			fmt.Printf("  error: %s\n", download.ErrorMsg)
-		} else {
-			fmt.Printf("%s\t%s\t%s\t%d/%d\t%s\n", download.Platform, download.VideoID, download.Status, download.BytesWritten, download.TotalBytes, download.Title)
+		fmt.Printf("%s\t%s\t%s\t%d/%d\t%s\n", download.Platform, download.VideoID, download.Status, download.BytesWritten, download.TotalBytes, download.Title)
+		if download.ErrorMsg != nil && *download.ErrorMsg != "" {
+			fmt.Printf("  error: %s\n", *download.ErrorMsg)
 		}
 	}
 }

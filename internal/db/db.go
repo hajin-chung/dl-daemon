@@ -15,13 +15,13 @@ type DB struct {
 }
 
 type DownloadRow struct {
-	VideoID      string `db:"video_id"`
-	Title        string `db:"title"`
-	Platform     string `db:"platform"`
-	Status       string `db:"status"`
-	BytesWritten int64  `db:"bytes_written"`
-	TotalBytes   int64  `db:"total_bytes"`
-	ErrorMsg     string `db:"error_msg"`
+	VideoID      string  `db:"video_id"`
+	Title        string  `db:"title"`
+	Platform     string  `db:"platform"`
+	Status       string  `db:"status"`
+	BytesWritten int64   `db:"bytes_written"`
+	TotalBytes   int64   `db:"total_bytes"`
+	ErrorMsg     *string `db:"error_msg"`
 }
 
 func OpenDatabase() (*DB, error) {
