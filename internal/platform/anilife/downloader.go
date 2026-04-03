@@ -3,7 +3,6 @@ package anilife
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os/exec"
 	"runtime"

@@ -17,6 +17,7 @@ import (
 	"deps.me/dl-daemon/internal/platform"
 	"deps.me/dl-daemon/internal/platform/anilife"
 	"deps.me/dl-daemon/internal/platform/chzzk"
+	"deps.me/dl-daemon/internal/platform/chzzk_live"
 )
 
 type Manager struct {
@@ -48,6 +49,7 @@ func New(db *db.DB) *Manager {
 		}
 	}
 	providers["chzzk"] = chzzk.NewVODProvider(filepath.Join(baseOutputDir, "chzzk"), aut, ses)
+	providers["chzzk_live"] = chzzk_live.NewProvider(filepath.Join(baseOutputDir, "chzzk-live"), aut, ses)
 	providers["anilife"] = anilife.NewProvider(filepath.Join(baseOutputDir, "anilife"))
 	for name := range providers {
 		slog.Info("provider registered", "provider", name)
