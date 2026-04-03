@@ -45,6 +45,7 @@ func RecordLive(session *Session, hlsURL string, outputPath string) error {
 		)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		slog.Debug("ffmpeg live command", "command", cmd.String())
 
 		stopProgress := make(chan struct{})
 		go trackProgress(session, stopProgress, partFiles)
