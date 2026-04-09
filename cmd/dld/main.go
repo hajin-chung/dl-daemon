@@ -19,7 +19,10 @@ import (
 	"deps.me/dl-daemon/internal/manager"
 	"deps.me/dl-daemon/internal/model"
 	"deps.me/dl-daemon/internal/platform/chzzk"
+	"deps.me/dl-daemon/internal/tui"
 	"deps.me/dl-daemon/internal/web"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
@@ -55,6 +58,8 @@ func main() {
 		handleDownloads(database, args[1:])
 	case "web":
 		handleWeb(database, args[1:])
+	case "tui":
+		handleTUI(database)
 	case "help", "-h", "--help":
 		printHelp()
 	default:
@@ -274,6 +279,10 @@ func handleWeb(database *db.DB, args []string) {
 	}
 }
 
+func handleTUI(database *db.DB) {
+	tea.NewProgram(tui.New(database), tea.WithAltScreen()).Run()
+}
+
 func handleDownloads(database *db.DB, args []string) {
 	downloads, err := database.ListDownloads()
 	if err != nil {
@@ -326,6 +335,7 @@ func printHelp() {
 	fmt.Println("  dld chzzk <subcommand>")
 	fmt.Println("  dld downloads")
 	fmt.Println("  dld web [addr]")
+	fmt.Println("  dld tui")
 	fmt.Println()
 	fmt.Println("Target commands:")
 	fmt.Println("  dld target add <platform> <id> [label] [output_dir]")
