@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
 	"deps.me/dl-daemon/internal/db"
+	"deps.me/dl-daemon/internal/lock"
 	"deps.me/dl-daemon/internal/logging"
 	"deps.me/dl-daemon/internal/manager"
 	"deps.me/dl-daemon/internal/model"
@@ -63,7 +65,20 @@ func main() {
 }
 
 func runDaemon(database *db.DB) {
-	slog.Info("daemon starting")
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatalf("get config dir: %v", err)
+	}
+	appDir := filepath.Join(configDir, "dld")
+
+	lk, err := lock.Acquire(appDir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	defer lk.Release()
+
+	slog.Info("daemon starting", "pid", os.Getpid())
 	mgr := manager.New(database)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
